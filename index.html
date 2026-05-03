@@ -1,0 +1,1016 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClickForge v5 — Firestore</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore,
+    doc, setDoc, getDocs, onSnapshot,
+    collection, query, orderBy, limit
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ══ CONFIG FIREBASE ══════════════════════════════════════════════════════════
+  // 👇 Remplacez par votre propre config Firebase (console.firebase.google.com)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCj4B8OWpc7IBUJbtnIU1AIsO2VI5PR_GY",
+    authDomain: "clicker-7f7c1.firebaseapp.com",
+    projectId: "clicker-7f7c1",
+    storageBucket: "clicker-7f7c1.firebasestorage.app",
+    messagingSenderId: "108927445702",
+    appId: "1:108927445702:web:2e9356e7b48b30222745c7"
+  };
+
+  // Init Firebase + Firestore
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Expose globally for the game script
+  window._firebase = {
+    db,
+    doc,
+    setDoc,
+    getDocs,
+    onSnapshot,
+    collection,
+    query,
+    orderBy,
+    limit,
+  };
+  window._firebaseReady = true;
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+:root{--bg:#0a0a12;--bg2:#12121e;--bg3:#1a1a2e;--gold:#f5c842;--gold2:#e0a800;--cyan:#00e5ff;--purple:#9c6eff;--green:#2ed573;--red:#ff4757;--text:#e8e8f0;--muted:#7070a0;--border:rgba(255,255,255,0.08);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;height:100vh;overflow:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(156,110,255,.05) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(0,229,255,.04) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.game-wrapper{display:grid;grid-template-columns:260px 1fr 300px;grid-template-rows:60px 1fr;height:100vh;position:relative;z-index:1;}
+.header{grid-column:1/-1;background:rgba(10,10,20,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:10;}
+.logo{font-family:'Cinzel Decorative',serif;font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--gold),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hstat{font-size:12px;color:var(--muted);}
+.hstat b{color:var(--gold);}
+.panel-left,.panel-right{background:var(--bg2);overflow-y:auto;padding:14px;}
+.panel-left{border-right:1px solid var(--border);}
+.panel-right{border-left:1px solid var(--border);}
+.panel-center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;background:var(--bg);}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+.tabs{display:flex;gap:3px;margin-bottom:12px;background:rgba(0,0,0,.3);border-radius:8px;padding:3px;}
+.tab-btn{flex:1;padding:5px 4px;background:transparent;border:none;border-radius:6px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;}
+.tab-btn.active{background:var(--bg3);color:var(--gold);}
+.section-title{font-family:'Cinzel Decorative',serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.score-main{font-family:'Cinzel Decorative',serif;font-size:34px;color:var(--gold);text-shadow:0 0 20px rgba(245,200,66,.4);line-height:1;text-align:center;}
+.score-sub{font-size:13px;color:var(--muted);text-align:center;margin-top:4px;}
+.score-sub b{color:var(--cyan);}
+.main-btn{width:190px;height:190px;border-radius:50%;border:3px solid var(--gold);background:radial-gradient(circle at 35% 35%,#2a2010,#0f0d00);cursor:pointer;transition:transform .08s,box-shadow .15s;box-shadow:0 0 30px rgba(245,200,66,.2),inset 0 0 30px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;flex-direction:column;user-select:none;gap:4px;}
+.main-btn:hover{box-shadow:0 0 55px rgba(245,200,66,.45),inset 0 0 30px rgba(0,0,0,.5);}
+.main-btn:active{transform:scale(.93);}
+.btn-icon{font-size:60px;line-height:1;}
+.btn-label{font-size:10px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;}
+.ms-wrap{width:100%;max-width:380px;}
+.ms-info{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;}
+.ms-info span{color:var(--text);}
+.prog-track{height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold));border-radius:4px;transition:width .4s ease;box-shadow:0 0 8px rgba(245,200,66,.5);}
+.float-num{position:fixed;font-family:'Cinzel Decorative',serif;font-size:20px;font-weight:700;text-shadow:0 0 10px rgba(245,200,66,.8);pointer-events:none;animation:floatUp .9s ease-out forwards;z-index:9999;}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-70px) scale(.7);}}
+/* SHOP */
+.shop-tabs{display:flex;gap:3px;margin-bottom:10px;background:rgba(0,0,0,.3);border-radius:7px;padding:3px;}
+.stab{flex:1;padding:4px;background:transparent;border:none;border-radius:5px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;}
+.stab.active{background:var(--bg3);color:var(--cyan);}
+.shop-item{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.shop-item.can-buy{border-color:rgba(245,200,66,.3);}
+.shop-item.can-buy:hover{border-color:rgba(245,200,66,.55);transform:translateX(2px);}
+.shop-item.cant-buy{opacity:.5;}
+.shop-item.is-owned{border-color:rgba(46,213,115,.25);opacity:1;}
+.si-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.si-name{font-weight:700;font-size:13px;}
+.si-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.si-badge-count{background:rgba(245,200,66,.12);color:var(--gold);border:1px solid rgba(245,200,66,.3);}
+.si-badge-unique{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.3);}
+.si-badge-owned{background:rgba(46,213,115,.1);color:var(--green);border:1px solid rgba(46,213,115,.3);}
+.si-badge-active{background:rgba(156,110,255,.1);color:var(--purple);border:1px solid rgba(156,110,255,.3);}
+.si-badge-cd{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
+.si-desc{font-size:11px;color:var(--muted);margin-bottom:7px;}
+.si-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.si-cost{color:var(--gold);font-weight:700;font-size:12px;flex-shrink:0;}
+.si-cps{color:var(--cyan);font-size:10px;flex:1;}
+.si-buy-btn{background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.35);color:var(--gold);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;transition:all .15s;flex-shrink:0;white-space:nowrap;}
+.si-buy-btn:hover{background:rgba(245,200,66,.3);}
+.si-buy-btn:disabled{opacity:.35;cursor:not-allowed;}
+.si-buy-btn:disabled:hover{background:rgba(245,200,66,.15);}
+/* UPGRADES */
+.upg-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:all .2s;display:flex;gap:9px;align-items:center;}
+.upg-item:hover:not(.purchased){border-color:rgba(156,110,255,.4);}
+.upg-item.purchased{opacity:.3;cursor:default;}
+.upg-item.hidden-upg{display:none;}
+.upg-icon{font-size:22px;flex-shrink:0;}
+.upg-name{font-size:12px;font-weight:700;}
+.upg-desc{font-size:10px;color:var(--muted);}
+.upg-cost{color:var(--purple);font-size:11px;font-weight:700;white-space:nowrap;margin-left:auto;}
+/* ACHIEVEMENTS */
+.ach-item{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:8px;margin-bottom:5px;background:var(--bg3);border:1px solid var(--border);transition:all .3s;}
+.ach-item.unlocked{border-color:rgba(245,200,66,.25);background:rgba(245,200,66,.04);}
+.ach-icon{font-size:20px;filter:grayscale(1);transition:filter .3s;flex-shrink:0;}
+.ach-item.unlocked .ach-icon{filter:none;}
+.ach-name{font-size:12px;font-weight:700;}
+.ach-desc{font-size:10px;color:var(--muted);}
+.ach-badge{margin-left:auto;font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+.ach-badge.ok{background:rgba(46,213,115,.1);color:var(--green);border:1px solid rgba(46,213,115,.3);}
+.ach-badge.nok{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);}
+/* STATS */
+.stat-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{color:var(--muted);}
+.stat-val{color:var(--text);font-weight:600;}
+/* PRESTIGE */
+.prestige-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.prestige-btn{width:100%;padding:11px;background:linear-gradient(135deg,#3a0060,#6a1ea0);border:1px solid rgba(156,110,255,.3);border-radius:10px;color:#d4aaff;font-family:'Cinzel Decorative',serif;font-size:10px;cursor:pointer;transition:all .2s;opacity:.4;}
+.prestige-btn.ready{opacity:1;box-shadow:0 0 20px rgba(156,110,255,.4);}
+.prestige-btn.ready:hover{box-shadow:0 0 35px rgba(156,110,255,.6);}
+.prestige-info{font-size:10px;color:var(--muted);text-align:center;margin-top:5px;}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{background:var(--bg2);border:1px solid rgba(245,200,66,.2);border-radius:16px;padding:28px;max-width:480px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 0 60px rgba(0,0,0,.8),0 0 30px rgba(245,200,66,.08);animation:slideUp .28s ease;}
+@keyframes slideUp{from{transform:translateY(28px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-title{font-family:'Cinzel Decorative',serif;font-size:18px;color:var(--gold);margin-bottom:4px;}
+.modal-sub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+.pv{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:10px;margin-top:18px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.pi{display:flex;gap:7px;align-items:flex-start;margin-bottom:7px;font-size:12px;color:var(--text);}
+.ptag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:2px;text-transform:uppercase;}
+.pnew{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.3);}
+.pfix{background:rgba(46,213,115,.1);color:var(--green);border:1px solid rgba(46,213,115,.3);}
+.pbal{background:rgba(156,110,255,.1);color:var(--purple);border:1px solid rgba(156,110,255,.3);}
+.modal-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:10px;color:#0a0800;font-family:'Cinzel Decorative',serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:20px;box-shadow:0 4px 18px rgba(245,200,66,.3);}
+.modal-btn:hover{box-shadow:0 4px 28px rgba(245,200,66,.5);}
+/* TOAST */
+.ach-toast{position:fixed;top:74px;right:16px;background:var(--bg2);border:1px solid rgba(245,200,66,.4);border-radius:12px;padding:12px 16px;z-index:2000;min-width:240px;box-shadow:0 8px 30px rgba(0,0,0,.6);animation:toastIn .4s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes toastIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.ach-toast.hide{animation:toastOut .3s ease forwards;}
+@keyframes toastOut{to{transform:translateX(120%);opacity:0;}}
+.toast-lbl{font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:3px;}
+.toast-nm{font-size:14px;font-weight:700;}
+.toast-ds{font-size:10px;color:var(--muted);margin-top:2px;}
+/* MILESTONE FLASH */
+.ms-flash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,10,20,.97);border:2px solid var(--gold);border-radius:16px;padding:24px 40px;text-align:center;z-index:3000;pointer-events:none;animation:msIn .5s ease;}
+@keyframes msIn{0%{transform:translate(-50%,-50%) scale(.5);opacity:0;}70%{transform:translate(-50%,-50%) scale(1.05);}100%{transform:translate(-50%,-50%) scale(1);opacity:1;}}
+.ms-flash-title{font-family:'Cinzel Decorative',serif;font-size:13px;color:var(--gold);letter-spacing:2px;}
+.ms-flash-num{font-family:'Cinzel Decorative',serif;font-size:36px;color:var(--gold);text-shadow:0 0 30px rgba(245,200,66,.7);}
+/* ACTIVE EFFECT BARS */
+.effect-bars{display:flex;flex-direction:column;gap:4px;width:100%;max-width:380px;}
+.effect-bar{background:rgba(156,110,255,.15);border:1px solid rgba(156,110,255,.3);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--purple);display:flex;justify-content:space-between;}
+.lb-btn{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;padding:5px 14px;border-radius:8px;cursor:pointer;letter-spacing:.5px;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.lb-btn:hover{background:rgba(0,229,255,.2);box-shadow:0 0 14px rgba(0,229,255,.2);}
+.lb-online-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(46,213,115,.8);animation:onlinePulse 2s infinite;}
+@keyframes onlinePulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+/* LEADERBOARD MODAL */
+.lb-modal{background:var(--bg2);border:1px solid rgba(0,229,255,.2);border-radius:16px;padding:0;max-width:540px;width:94%;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,.8),0 0 30px rgba(0,229,255,.07);animation:slideUp .28s ease;}
+.lb-header{padding:22px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;}
+.lb-title{font-family:'Cinzel Decorative',serif;font-size:18px;color:var(--cyan);}
+.lb-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.lb-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:2px 6px;border-radius:4px;transition:color .15s;}
+.lb-close:hover{color:var(--text);}
+.lb-name-row{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.lb-name-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;outline:none;transition:border-color .2s;}
+.lb-name-input:focus{border-color:rgba(0,229,255,.4);}
+.lb-name-input::placeholder{color:var(--muted);}
+.lb-submit{background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(0,229,255,.1));border:1px solid rgba(0,229,255,.35);color:var(--cyan);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.lb-submit:hover{background:rgba(0,229,255,.25);}
+.lb-body{overflow-y:auto;padding:12px 16px;flex:1;}
+.lb-filter{display:flex;gap:4px;margin-bottom:12px;padding:0 8px;}
+.lb-filt-btn{flex:1;padding:5px;background:transparent;border:none;border-radius:6px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;}
+.lb-filt-btn.active{background:var(--bg3);color:var(--cyan);}
+.lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;margin-bottom:5px;background:var(--bg3);border:1px solid var(--border);transition:all .2s;position:relative;overflow:hidden;}
+.lb-row.me{border-color:rgba(0,229,255,.35);background:rgba(0,229,255,.04);}
+.lb-row.rank-1{border-color:rgba(245,200,66,.5);background:rgba(245,200,66,.06);}
+.lb-row.rank-2{border-color:rgba(180,180,200,.3);background:rgba(180,180,200,.03);}
+.lb-row.rank-3{border-color:rgba(200,120,50,.35);background:rgba(200,120,50,.05);}
+.lb-rank{font-family:'Cinzel Decorative',serif;font-size:13px;font-weight:700;min-width:30px;text-align:center;flex-shrink:0;}
+.lb-rank.r1{color:var(--gold);}
+.lb-rank.r2{color:#b0b0c8;}
+.lb-rank.r3{color:#c87832;}
+.lb-rank.rn{color:var(--muted);font-size:11px;}
+.lb-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.lb-info{flex:1;min-width:0;}
+.lb-pname{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-pmeta{font-size:10px;color:var(--muted);margin-top:1px;}
+.lb-score-col{text-align:right;flex-shrink:0;}
+.lb-score{font-family:'Cinzel Decorative',serif;font-size:13px;color:var(--gold);}
+.lb-cps{font-size:10px;color:var(--cyan);margin-top:1px;}
+.lb-me-tag{font-size:9px;background:rgba(0,229,255,.15);color:var(--cyan);border:1px solid rgba(0,229,255,.3);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
+.lb-empty{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+.lb-status{font-size:10px;color:var(--muted);text-align:right;padding:8px 12px 4px;flex-shrink:0;}
+.lb-loading{text-align:center;padding:24px;color:var(--muted);font-size:12px;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+</style>
+</head>
+<body>
+<div class="game-wrapper">
+  <div class="header">
+    <div class="logo">⚙ ClickForge</div>
+    <div style="display:flex;gap:20px;">
+      <div class="hstat">Clics : <b id="h-clicks">0</b></div>
+      <div class="hstat">Prestige : <b id="h-pres">✦ 0</b></div>
+      <div class="hstat">Total : <b id="h-total">0</b></div>
+    </div>
+    <button class="lb-btn" onclick="openLeaderboard()"><span class="lb-online-dot"></span>🏆 Classement</button>
+  </div>
+
+  <!-- LEFT -->
+  <div class="panel-left">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('upgrades')">Amélios</button>
+      <button class="tab-btn" onclick="switchTab('achievements')">Succès</button>
+      <button class="tab-btn" onclick="switchTab('stats')">Stats</button>
+    </div>
+    <div id="tab-upgrades">
+      <div class="section-title">Améliorations</div>
+      <div id="upgrades-list"></div>
+    </div>
+    <div id="tab-achievements" style="display:none">
+      <div class="section-title">Succès (<span id="ach-count">0</span>/12)</div>
+      <div id="achievements-list"></div>
+    </div>
+    <div id="tab-stats" style="display:none">
+      <div class="section-title">Statistiques</div>
+      <div id="stats-list"></div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="panel-center">
+    <div>
+      <div class="score-main" id="main-score">0</div>
+      <div class="score-sub">pièces &nbsp;·&nbsp; <b id="cps-display">0</b>/sec</div>
+    </div>
+    <button class="main-btn" onclick="handleClick(event)">
+      <div class="btn-icon">⚙️</div>
+      <div class="btn-label">Forger</div>
+    </button>
+    <div class="ms-wrap">
+      <div class="ms-info"><span>Prochain palier</span><span id="ms-label">100</span></div>
+      <div class="prog-track"><div class="prog-fill" id="ms-fill" style="width:0%"></div></div>
+    </div>
+    <div class="effect-bars" id="effect-bars"></div>
+  </div>
+
+  <!-- RIGHT: SHOP -->
+  <div class="panel-right">
+    <div class="section-title">Boutique</div>
+    <div class="shop-tabs">
+      <button class="stab active" onclick="switchShopTab('gen')">Générateurs</button>
+      <button class="stab" onclick="switchShopTab('spc')">Spéciaux</button>
+    </div>
+    <div id="shop-gen"></div>
+    <div id="shop-spc" style="display:none"></div>
+    <div class="prestige-wrap">
+      <button class="prestige-btn" id="prestige-btn" onclick="doPrestige()">✦ Prestige — 1 000 000 pièces</button>
+      <div class="prestige-info" id="prestige-info">Réinitialisez pour +25% permanent par niveau</div>
+    </div>
+  </div>
+</div>
+
+<!-- PATCH NOTES -->
+<div class="modal-overlay" id="patch-modal">
+  <div class="modal">
+    <div class="modal-title">Notes de mise à jour</div>
+    <div class="modal-sub">ClickForge v5.1.0 — Équilibrage Prestige</div>
+	<div class="pv">v5.1.0 — Équilibrage ⚖️</div>
+    <div class="pi"><span class="ptag pbal">BAL</span>🥊 <b>Gants de Titan</b> : le coût est désormais multiplié par <b>×3 à chaque prestige</b> pour équilibrer leur puissance entre les runs</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Le coût actuel des Gants de Titan s'affiche dynamiquement dans le panneau d'améliorations, avec un indicateur <b>×3 par prestige</b> visible dès le 1er prestige</div>
+	<div class="pv">v5.0.0 — Firestore 🔥</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>🔥 Migration vers <b>Firestore</b> : stockage cloud fiable sans databaseURL</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Correction de la config Firebase (projectId et databaseURL incorrects)</div>
+    <div class="pi"><span class="ptag pbal">INFO</span>Activez Firestore dans la console Firebase → <b>Build → Firestore Database</b>, puis ajoutez une règle <code>allow read, write: if true;</code> en mode test</div>
+    <div class="pv">v4.0.0 — Firebase Realtime Database 🔥</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>🔥 Classement mondial <b>via Firebase</b> : vos scores sont stockés en base de données cloud temps réel</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>⚡ Synchronisation instantanée — les nouveaux scores apparaissent en direct sans rechargement</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>🌍 Top 100 mondial chargé depuis Firebase Realtime Database</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Fallback localStorage si Firebase est non configuré ou hors-ligne</div>
+    <div class="pv">⚙️ Configuration requise</div>
+    <div class="pi"><span class="ptag pbal">INFO</span>Remplacez la config Firebase dans le <code>&lt;script type="module"&gt;</code> en haut du fichier avec vos propres clés depuis <b>console.firebase.google.com</b></div>
+    <div class="pv">v2.5.0</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>🏆 Classement local : comparez vos scores avec vos parties précédentes, triez par pièces totales, clics ou prestige</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Pseudonyme persistant : votre nom est sauvegardé entre les sessions</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Classement : système entièrement revu, scores correctement sauvegardés et triés</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Affichage du rang mis à jour en temps réel à chaque soumission</div>
+    <div class="pv">v2.4.1</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Prestige : réinitialisez pour +25% de production permanent</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Boutique Spéciaux : objets uniques et consommables avec recharge</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>12 succès avec bonus cumulatifs sur la production</div>
+    <div class="pi"><span class="ptag pbal">BAL</span>Coût ×1.15 par générateur acheté pour une progression lisse</div>
+    <div class="pv">v2.3.0</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>8 générateurs automatiques (Apprenti → Fissure Temporelle)</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Production passive incorrecte en arrière-plan</div>
+    <div class="pi"><span class="ptag pfix">FIX</span>Sauvegarde automatique toutes les 5 secondes</div>
+    <div class="pv">v2.0.0 — Refonte totale</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Interface redessinée, thème forge médiévale</div>
+    <div class="pi"><span class="ptag pnew">NEW</span>Système d'améliorations débloquées par paliers</div>
+    <div class="pi"><span class="ptag pbal">BAL</span>Rééquilibrage complet de la progression</div>
+    <button class="modal-btn" onclick="document.getElementById('patch-modal').style.display='none'">Commencer à Forger !</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD MODAL -->
+<div class="modal-overlay" id="lb-modal" style="display:none">
+  <div class="lb-modal">
+    <div class="lb-header">
+      <div>
+        <div class="lb-title">🏆 Classement Global</div>
+        <div class="lb-sub">🌐 Classement mondial en ligne · <span id="lb-online-count">…</span> joueurs · Mise à jour automatique</div>
+      </div>
+      <button class="lb-close" onclick="closeLeaderboard()">✕</button>
+    </div>
+    <div class="lb-name-row">
+      <input class="lb-name-input" id="lb-name-input" maxlength="20" placeholder="Votre pseudo (20 car. max)" />
+      <button class="lb-submit" onclick="submitScore()">Soumettre mon score</button>
+    </div>
+    <div class="lb-filter">
+      <button class="lb-filt-btn active" onclick="setLbFilter('tco')">Pièces totales</button>
+      <button class="lb-filt-btn" onclick="setLbFilter('tc')">Clics</button>
+      <button class="lb-filt-btn" onclick="setLbFilter('pc')">Prestige</button>
+    </div>
+    <div class="lb-body" id="lb-body">
+      <div class="lb-loading">Chargement du classement…</div>
+    </div>
+    <div class="lb-status" id="lb-status"></div>
+  </div>
+</div>
+
+<script>
+// ═══ DATA ════════════════════════════════════════════════════════════════════
+const GENS = [
+  {id:'hlp', name:'Apprenti Forgeron', icon:'👷', desc:'Frappe doucement en votre absence',      baseCost:15,      baseCps:0.1},
+  {id:'blw', name:'Soufflet Magique',  icon:'🌬️', desc:'Attise les braises sans cesse',          baseCost:100,     baseCps:0.5},
+  {id:'anv', name:'Enclume Runique',   icon:'⚒️', desc:'Frappe lourde automatique',              baseCost:500,     baseCps:2},
+  {id:'fur', name:'Fourneau Infernal', icon:'🔥', desc:'Fonte en continu jour et nuit',           baseCost:2000,    baseCps:8},
+  {id:'glm', name:'Golem de Métal',    icon:'🤖', desc:'Travaille sans relâche',                  baseCost:10000,   baseCps:40},
+  {id:'drg', name:'Dragon Forgeron',   icon:'🐉', desc:'Fusion draconique ultra-puissante',       baseCost:50000,   baseCps:160},
+  {id:'alc', name:'Labo Alchimique',   icon:'⚗️', desc:'Transmutation d\'or pur',                baseCost:250000,  baseCps:640},
+  {id:'trf', name:'Fissure Temporelle',icon:'🌀', desc:'Forge à travers les lignes du temps',    baseCost:1000000, baseCps:2560},
+];
+
+const SPECIALS = [
+  {id:'crit', name:'Marteau Critique',    icon:'💥', desc:'10% chance ×5 par clic',       cost:500,    unique:true,  cdSec:0},
+  {id:'cmbo', name:'Combo Forge',         icon:'⚡', desc:'Clics rapides boostent ×1.5',   cost:2000,   unique:true,  cdSec:0},
+  {id:'auto', name:'Main Automatique',    icon:'🦾', desc:'+1 clic auto / seconde',         cost:5000,   unique:true,  cdSec:0},
+  {id:'rx2',  name:'Multiplicateur Royal',icon:'👑', desc:'Production globale ×2 permanent',cost:50000,  unique:true,  cdSec:0},
+  {id:'time', name:'Sablier du Forgeron', icon:'⏳', desc:'Production ×3 pendant 30 sec',   cost:25000,  unique:false, cdSec:120},
+  {id:'luck', name:'Pierre de Chance',    icon:'🍀', desc:'Production ×3 pendant 15 sec',   cost:15000,  unique:false, cdSec:90},
+];
+
+const UPGS = [
+  {id:'u1', name:'Marteau Renforcé',    icon:'🔨', desc:'Clic ×2',          cost:50,     req:0,       fx:s=>{s.cm*=2;}},
+  {id:'u2', name:'Marteau de Guerre',   icon:'⚔️', desc:'Clic ×5',          cost:500,    req:100,     fx:s=>{s.cm*=5;}},
+  {id:'u3', name:'Marteau Légendaire',  icon:'🌟', desc:'Clic ×10',         cost:5000,   req:500,     fx:s=>{s.cm*=10;}},
+  {id:'u4', name:'Gants de Titan',      icon:'🥊', desc:'Clic ×50',         cost:50000,  req:5000,    fx:s=>{s.cm*=50;}, prestigeScale:true},
+  {id:'u5', name:'Formation Accélérée', icon:'📚', desc:'Apprentis ×2',     cost:200,    req:0,       fx:s=>{s.bst.hlp=(s.bst.hlp||1)*2;}},
+  {id:'u6', name:'Charbon Enchanté',    icon:'♨️', desc:'Fourneaux ×3',     cost:5000,   req:1000,    fx:s=>{s.bst.fur=(s.bst.fur||1)*3;}},
+  {id:'u7', name:'Écailles de Feu',     icon:'🔴', desc:'Dragons ×5',       cost:100000, req:50000,   fx:s=>{s.bst.drg=(s.bst.drg||1)*5;}},
+  {id:'u8', name:'Harmonie des Forges', icon:'✨', desc:'Production ×1.5',  cost:500000, req:200000,  fx:s=>{s.gm*=1.5;}},
+];
+
+const ACHS = [
+  {id:'a1',  icon:'🔨', name:'Premier Coup',       desc:'Votre tout 1er clic !',         cond:s=>s.tc>=1,           bonus:null,   bpct:0},
+  {id:'a2',  icon:'💯', name:'Centenaire',          desc:'100 pièces gagnées',            cond:s=>s.tco>=100,        bonus:'Clic +5%', bpct:5},
+  {id:'a3',  icon:'🎯', name:'Millénaire',          desc:'1 000 pièces gagnées',          cond:s=>s.tco>=1000,       bonus:'Prod +5%', bpct:5},
+  {id:'a4',  icon:'👑', name:'Seigneur de Forge',   desc:'10 000 pièces gagnées',         cond:s=>s.tco>=10000,      bonus:'Prod +10%',bpct:10},
+  {id:'a5',  icon:'⚒️', name:'Maître Forgeron',    desc:'100 000 pièces gagnées',        cond:s=>s.tco>=100000,     bonus:'Prod +10%',bpct:10},
+  {id:'a6',  icon:'🏆', name:'Légende des Forges',  desc:'1 000 000 pièces gagnées',      cond:s=>s.tco>=1000000,    bonus:'Prod +25%',bpct:25},
+  {id:'a7',  icon:'⚡', name:'Dieu de la Forge',    desc:'100 000 000 pièces gagnées',    cond:s=>s.tco>=100000000,  bonus:'Prod +50%',bpct:50},
+  {id:'a8',  icon:'🖱️', name:'Clicomane',           desc:'100 clics manuels',             cond:s=>s.tc>=100,         bonus:'Clic +5%', bpct:5},
+  {id:'a9',  icon:'⚡', name:'Hypercliqueur',       desc:'1 000 clics manuels',           cond:s=>s.tc>=1000,        bonus:'Clic +10%',bpct:10},
+  {id:'a10', icon:'✨', name:'Clic Divin',          desc:'10 000 clics manuels',          cond:s=>s.tc>=10000,       bonus:'Clic +20%',bpct:20},
+  {id:'a11', icon:'🌟', name:'Renaissance',         desc:'1er prestige accompli',         cond:s=>s.pc>=1,           bonus:'+20% permanent',bpct:20},
+  {id:'a12', icon:'🎪', name:'Collectionneur',      desc:'Au moins 1 de chaque générateur',cond:s=>GENS.every(g=>(s.own[g.id]||0)>=1),bonus:'Tout +15%',bpct:15},
+];
+
+const MILESTONES = [100,500,1000,5000,10000,50000,100000,500000,1000000,5000000,10000000,100000000,1000000000];
+
+// ═══ STATE ═══════════════════════════════════════════════════════════════════
+const mkState = () => ({
+  co:0, tco:0, tc:0,     // coins, total coins, total clicks
+  pc:0, pb:1,            // prestige count, prestige bonus
+  cm:1, gm:1,            // click mult, global mult
+  bst:{}, own:{},        // boosts per gen, owned counts
+  spc:{},                // owned specials (unique)
+  upu:{},                // upgrades purchased
+  achu:{},               // achievements unlocked
+  scd:{},                // special cooldowns (timestamps)
+  afx:{},                // active effects {id: endTimestamp}
+  ls:Date.now(),
+});
+
+let S = mkState();
+let AM = 1;          // achievement mult
+let lastMS = 0;
+let comboT = 0, comboN = 0;
+
+// ═══ MATH ════════════════════════════════════════════════════════════════════
+function fmt(n){
+  n=Math.floor(n);
+  if(n>=1e15) return (n/1e15).toFixed(2)+'Q';
+  if(n>=1e12) return (n/1e12).toFixed(2)+'T';
+  if(n>=1e9)  return (n/1e9).toFixed(2)+'G';
+  if(n>=1e6)  return (n/1e6).toFixed(2)+'M';
+  if(n>=1e3)  return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+
+function genCost(g){ return Math.floor(g.baseCost * Math.pow(1.15, S.own[g.id]||0)); }
+
+function getCps(){
+  let cps = 0;
+  GENS.forEach(g=>{ cps += (S.own[g.id]||0) * g.baseCps * (S.bst[g.id]||1); });
+  if(S.spc['auto']) cps += getCP(); // auto-click adds click power per sec
+  let m = S.gm * AM * S.pb;
+  const now=Date.now();
+  if(S.afx.time && now<S.afx.time) m*=3;
+  if(S.afx.luck && now<S.afx.luck) m*=3;
+  if(S.spc['rx2']) m*=2;
+  return cps * m;
+}
+
+function getCP(){
+  let p = S.cm;
+  if(S.spc['cmbo'] && comboN>0) p *= 1 + comboN*0.05;
+  const now=Date.now();
+  let m = AM * S.pb;
+  if(S.afx.time && now<S.afx.time) m*=3;
+  if(S.afx.luck && now<S.afx.luck) m*=3;
+  return p * m;
+}
+
+function upgCost(u){
+  if(u.prestigeScale) return Math.floor(u.cost * Math.pow(3, S.pc));
+  return u.cost;
+}
+
+function getMsInfo(){
+  const tc=S.tco;
+  for(let i=0;i<MILESTONES.length;i++){
+    if(tc<MILESTONES[i]){
+      const prev=i===0?0:MILESTONES[i-1];
+      return {label:fmt(MILESTONES[i]), pct:Math.min(100,((tc-prev)/(MILESTONES[i]-prev))*100), next:MILESTONES[i]};
+    }
+  }
+  return {label:'MAX', pct:100, next:Infinity};
+}
+
+// ═══ ACTIONS ═════════════════════════════════════════════════════════════════
+function handleClick(e){
+  let p = getCP(), crit=false;
+  if(S.spc['crit'] && Math.random()<0.1){ p*=5; crit=true; }
+  S.co+=p; S.tco+=p; S.tc++;
+  // combo
+  const now=Date.now();
+  if(S.spc['cmbo']){ comboN = now-comboT<500 ? Math.min(comboN+1,20) : 0; comboT=now; }
+  spawnFloat(e.clientX,e.clientY,'+'+fmt(p),crit?'#ff6b6b':'var(--gold)');
+  checkAchs(); checkMs();
+}
+
+function buyGen(id){
+  const g=GENS.find(x=>x.id===id); if(!g) return;
+  const c=genCost(g); if(S.co<c) return;
+  S.co-=c; S.own[id]=(S.own[id]||0)+1;
+  checkAchs();
+}
+
+function buySpecial(id){
+  const sp=SPECIALS.find(x=>x.id===id); if(!sp) return;
+  const now=Date.now();
+  if(sp.unique && S.spc[id]) return;
+  if(!sp.unique && S.scd[id] && now<S.scd[id]) return;
+  if(S.co<sp.cost) return;
+  S.co-=sp.cost;
+  if(sp.unique) S.spc[id]=true;
+  if(!sp.unique) S.scd[id]=now+sp.cdSec*1000;
+  activateSpc(id);
+  checkAchs();
+}
+
+function activateSpc(id){
+  const now=Date.now();
+  if(id==='auto'){
+    // Applied via getCps — no interval needed
+  }
+  if(id==='time') S.afx.time=now+30000;
+  if(id==='luck') S.afx.luck=now+15000;
+}
+
+function buyUpg(id){
+  const u=UPGS.find(x=>x.id===id);
+  const cost=upgCost(u);
+  if(!u||S.upu[id]||S.co<cost) return;
+  S.co-=cost; S.upu[id]=true; u.fx(S);
+}
+
+function prestigeCost(){ return Math.floor(1000000 * Math.pow(5, S.pc)); }
+
+function doPrestige(){
+  const cost = prestigeCost();
+  if(S.co<cost) return;
+  if(!confirm('Prestige : réinitialisez pour +25% permanent. Confirmer ?')) return;
+  const pc=S.pc+1, pb=1+pc*0.25, tco=S.tco, tc=S.tc, achu=S.achu;
+  S=mkState(); S.pc=pc; S.pb=pb; S.tco=tco; S.tc=tc; S.achu=achu;
+  AM=1;
+  // Re-apply ach bonuses
+  ACHS.forEach(a=>{ if(S.achu[a.id]) AM*=(1+a.bpct/100); });
+  checkAchs(); renderAll();
+}
+
+// ═══ ACHIEVEMENTS ════════════════════════════════════════════════════════════
+function checkAchs(){
+  ACHS.forEach(a=>{
+    if(!S.achu[a.id] && a.cond(S)){
+      S.achu[a.id]=true;
+      AM *= (1+a.bpct/100);
+      showToast(a);
+    }
+  });
+}
+
+// ═══ MILESTONE ═══════════════════════════════════════════════════════════════
+function checkMs(){
+  for(let i=0;i<MILESTONES.length;i++){
+    if(S.tco>=MILESTONES[i] && lastMS<MILESTONES[i]){
+      lastMS=MILESTONES[i]; showMsFlash(MILESTONES[i]); break;
+    }
+  }
+}
+
+// ═══ RENDER ══════════════════════════════════════════════════════════════════
+function renderGenShop(){
+  const el=document.getElementById('shop-gen'); el.innerHTML='';
+  GENS.forEach(g=>{
+    const cost=genCost(g), n=S.own[g.id]||0, can=S.co>=cost;
+    const cpsEach=(g.baseCps*(S.bst[g.id]||1)*(S.gm||1)*AM*S.pb).toFixed(1);
+    const d=document.createElement('div');
+    d.className='shop-item '+(can?'can-buy':'cant-buy');
+    d.innerHTML=
+      '<div class="si-head">'+
+        '<span class="si-name">'+g.icon+' '+g.name+'</span>'+
+        '<span class="si-badge si-badge-count">'+n+'</span>'+
+      '</div>'+
+      '<div class="si-desc">'+g.desc+'</div>'+
+      '<div class="si-foot">'+
+        '<span class="si-cost">💰 '+fmt(cost)+'</span>'+
+        '<span class="si-cps">'+cpsEach+'/sec chacun</span>'+
+        '<button class="si-buy-btn"'+(can?'':' disabled')+' onclick="event.stopPropagation();buyGen(\''+g.id+'\')">Acheter</button>'+
+      '</div>';
+    d.onclick=()=>buyGen(g.id);
+    el.appendChild(d);
+  });
+}
+
+function renderSpcShop(){
+  const el=document.getElementById('shop-spc'); el.innerHTML='';
+  const now=Date.now();
+  SPECIALS.forEach(sp=>{
+    const owned=!!S.spc[sp.id];
+    const cdLeft=(!sp.unique&&S.scd[sp.id])?Math.max(0,Math.ceil((S.scd[sp.id]-now)/1000)):0;
+    const onCD=cdLeft>0;
+    const can=!owned&&!onCD&&S.co>=sp.cost;
+    const d=document.createElement('div');
+    let badgeHtml='';
+    if(sp.unique){
+      if(owned) badgeHtml='<span class="si-badge si-badge-owned">✓ Actif</span>';
+      else badgeHtml='<span class="si-badge si-badge-unique">UNIQUE</span>';
+    } else {
+      if(onCD) badgeHtml='<span class="si-badge si-badge-cd">'+cdLeft+'s</span>';
+      else badgeHtml='<span class="si-badge si-badge-active">ACTIF</span>';
+    }
+    let btnHtml='';
+    if(!owned&&!onCD) btnHtml='<button class="si-buy-btn"'+(can?'':' disabled')+' onclick="event.stopPropagation();buySpecial(\''+sp.id+'\')">Acheter</button>';
+    else if(onCD) btnHtml='<span style="font-size:10px;color:var(--muted);">Recharge...</span>';
+    else btnHtml='<span style="font-size:10px;color:var(--green);">✓ Obtenu</span>';
+    d.className='shop-item '+(owned?'is-owned':can?'can-buy':'cant-buy');
+    d.innerHTML=
+      '<div class="si-head">'+
+        '<span class="si-name">'+sp.icon+' '+sp.name+'</span>'+
+        badgeHtml+
+      '</div>'+
+      '<div class="si-desc">'+sp.desc+'</div>'+
+      '<div class="si-foot">'+
+        '<span class="si-cost">💰 '+fmt(sp.cost)+'</span>'+
+        btnHtml+
+      '</div>';
+    if(can) d.onclick=()=>buySpecial(sp.id);
+    el.appendChild(d);
+  });
+}
+
+function renderUpgrades(){
+  const el=document.getElementById('upgrades-list'); el.innerHTML='';
+  UPGS.forEach(u=>{
+    const p=!!S.upu[u.id], vis=S.tco>=u.req||p;
+    const cost=upgCost(u);
+    const d=document.createElement('div');
+    d.className='upg-item'+(p?' purchased':'')+(vis?'':' hidden-upg');
+    d.onclick=()=>buyUpg(u.id);
+    let costLabel = p ? 'Acquis' : '💰 '+fmt(cost);
+    let extraLabel = (u.prestigeScale && !p && S.pc>0) ? ' <span style="font-size:9px;color:var(--purple);">×3 par prestige</span>' : '';
+    d.innerHTML=
+      '<div class="upg-icon">'+u.icon+'</div>'+
+      '<div><div class="upg-name">'+u.name+(p?' ✓':'')+'</div><div class="upg-desc">'+u.desc+'</div></div>'+
+      '<div class="upg-cost">'+costLabel+extraLabel+'</div>';
+    el.appendChild(d);
+  });
+}
+
+function renderAchs(){
+  const el=document.getElementById('achievements-list'); el.innerHTML='';
+  let cnt=0;
+  ACHS.forEach(a=>{
+    const u=!!S.achu[a.id]; if(u) cnt++;
+    const d=document.createElement('div');
+    d.className='ach-item'+(u?' unlocked':'');
+    d.innerHTML=
+      '<div class="ach-icon">'+a.icon+'</div>'+
+      '<div style="flex:1;min-width:0;">'+
+        '<div class="ach-name">'+a.name+'</div>'+
+        '<div class="ach-desc">'+(u?(a.desc+(a.bonus?' · '+a.bonus:'')):'???')+'</div>'+
+      '</div>'+
+      '<div class="ach-badge '+(u?'ok':'nok')+'">'+(u?'✓':'?')+'</div>';
+    el.appendChild(d);
+  });
+  document.getElementById('ach-count').textContent=cnt;
+}
+
+function renderStats(){
+  const el=document.getElementById('stats-list'); if(!el) return;
+  const cps=getCps();
+  const rows=[
+    ['Pièces actuelles',fmt(S.co)],
+    ['Total gagné',fmt(S.tco)],
+    ['Production/sec',fmt(cps)],
+    ['Puissance de clic',fmt(getCP())],
+    ['Clics manuels',fmt(S.tc)],
+    ['Mult. global',S.gm.toFixed(2)+'×'],
+    ['Bonus succès',AM.toFixed(2)+'×'],
+    ['Bonus prestige',S.pb.toFixed(2)+'×'],
+    ['Prestige',''+S.pc],
+    ['Succès',Object.keys(S.achu).length+'/'+ACHS.length],
+    ['Temps → 1M',cps>0?fmt(Math.max(0,(1e6-S.co)/cps))+'s':'∞'],
+  ];
+  el.innerHTML='';
+  rows.forEach(([k,v])=>{
+    const r=document.createElement('div'); r.className='stat-row';
+    r.innerHTML='<span class="stat-label">'+k+'</span><span class="stat-val">'+v+'</span>';
+    el.appendChild(r);
+  });
+}
+
+function renderEffects(){
+  const el=document.getElementById('effect-bars'); el.innerHTML='';
+  const now=Date.now();
+  if(S.afx.time&&now<S.afx.time){
+    const s=Math.ceil((S.afx.time-now)/1000);
+    el.innerHTML+='<div class="effect-bar">⏳ Sablier actif — ×3 production<span>'+s+'s</span></div>';
+  }
+  if(S.afx.luck&&now<S.afx.luck){
+    const s=Math.ceil((S.afx.luck-now)/1000);
+    el.innerHTML+='<div class="effect-bar">🍀 Pierre de chance — ×3<span>'+s+'s</span></div>';
+  }
+}
+
+function updateHUD(){
+  document.getElementById('main-score').textContent=fmt(S.co);
+  document.getElementById('cps-display').textContent=fmt(getCps());
+  document.getElementById('h-clicks').textContent=fmt(S.tc);
+  document.getElementById('h-pres').textContent='✦ '+S.pc;
+  document.getElementById('h-total').textContent=fmt(S.tco);
+  const ms=getMsInfo();
+  document.getElementById('ms-label').textContent=ms.label;
+  document.getElementById('ms-fill').style.width=ms.pct+'%';
+  const cost = prestigeCost();
+  const pb=document.getElementById('prestige-btn');
+  pb.classList.toggle('ready',S.co>=cost);
+  pb.textContent='✦ Prestige — '+fmt(cost)+' pièces';
+  document.getElementById('prestige-info').textContent=
+    S.pc>0?'Prestige ✦'+S.pc+' — bonus ×'+S.pb.toFixed(2)+' · prochain ×5 plus cher':'Réinitialisez pour +25% permanent par niveau';
+}
+
+function renderAll(){
+  updateHUD();
+  renderGenShop();
+  renderSpcShop();
+  renderUpgrades();
+  renderAchs();
+  renderStats();
+  renderEffects();
+}
+
+// ═══ UI HELPERS ═══════════════════════════════════════════════════════════════
+function switchTab(n){
+  ['upgrades','achievements','stats'].forEach(t=>{document.getElementById('tab-'+t).style.display=t===n?'':'none';});
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['upgrades','achievements','stats'][i]===n));
+}
+function switchShopTab(n){
+  document.getElementById('shop-gen').style.display=n==='gen'?'':'none';
+  document.getElementById('shop-spc').style.display=n==='spc'?'':'none';
+  document.querySelectorAll('.stab').forEach((b,i)=>b.classList.toggle('active',['gen','spc'][i]===n));
+}
+function spawnFloat(x,y,txt,col){
+  const f=document.createElement('div'); f.className='float-num';
+  f.textContent=txt; f.style.color=col||'var(--gold)';
+  f.style.left=(x-20)+'px'; f.style.top=(y-20)+'px';
+  document.body.appendChild(f); setTimeout(()=>f.remove(),950);
+}
+let toastQ=[],toastBusy=false;
+function showToast(a){toastQ.push(a);if(!toastBusy)nextToast();}
+function nextToast(){
+  if(!toastQ.length){toastBusy=false;return;} toastBusy=true;
+  const a=toastQ.shift();
+  const t=document.createElement('div'); t.className='ach-toast';
+  t.innerHTML='<div class="toast-lbl">🏆 Succès débloqué !</div><div class="toast-nm">'+a.icon+' '+a.name+'</div><div class="toast-ds">'+a.desc+(a.bonus?' · '+a.bonus:'')+'</div>';
+  document.body.appendChild(t);
+  setTimeout(()=>{t.classList.add('hide');setTimeout(()=>{t.remove();nextToast();},300);},3000);
+}
+function showMsFlash(n){
+  const f=document.createElement('div'); f.className='ms-flash';
+  f.innerHTML='<div class="ms-flash-title">✦ PALIER ATTEINT ✦</div><div class="ms-flash-num">'+fmt(n)+'</div><div style="font-size:10px;color:var(--muted);margin-top:4px;">pièces gagnées</div>';
+  document.body.appendChild(f);
+  setTimeout(()=>{
+    f.style.transition='opacity .5s';f.style.opacity='0';
+    setTimeout(()=>f.remove(),500);
+  },2200);
+}
+
+// ═══ SAVE / LOAD ══════════════════════════════════════════════════════════════
+function save(){try{localStorage.setItem('cf3',JSON.stringify({S,AM,lastMS}));}catch(e){}}
+function load(){
+  try{
+    const raw=localStorage.getItem('cf3'); if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d.S) S=Object.assign(mkState(),d.S);
+    if(d.AM) AM=d.AM;
+    if(d.lastMS) lastMS=d.lastMS;
+    // Re-apply unique special effects (auto-click via getCps, rx2 via flag, afx may have expired)
+    const now=Date.now();
+    if(S.afx.time&&now>=S.afx.time) delete S.afx.time;
+    if(S.afx.luck&&now>=S.afx.luck) delete S.afx.luck;
+  }catch(e){}
+}
+
+// ═══ GAME LOOP ════════════════════════════════════════════════════════════════
+let lt=Date.now(), ls2=Date.now(), shopTimer=0;
+function loop(){
+  const now=Date.now(), dt=(now-lt)/1000; lt=now;
+  const earned=getCps()*dt;
+  S.co+=earned; S.tco+=earned;
+  checkAchs(); checkMs();
+  updateHUD();
+  renderEffects();
+  shopTimer+=dt;
+  if(shopTimer>0.5){ shopTimer=0; renderGenShop(); renderSpcShop(); renderUpgrades(); renderAchs(); renderStats(); }
+  if(now-ls2>5000){ ls2=now; save(); autoSubmitScore(); }
+  requestAnimationFrame(loop);
+}
+
+// ═══ LEADERBOARD — Firestore ══════════════════════════════════════════════════
+const LB_KEY_LOCAL    = 'clickforge_lb_scores';
+const FS_COLLECTION   = 'clickforge_leaderboard';   // collection Firestore
+let lbFilter     = 'tco';
+let lbData       = [];
+let myPlayerId   = null;
+let lbOpen       = false;
+let _fbReady     = false;   // Firebase chargé ?
+let _lbListener  = null;    // unsubscribe realtime listener
+
+// Attend que le module Firebase soit prêt
+function waitForFirebase(){ return new Promise(resolve=>{
+  if(window._firebaseReady){ _fbReady=true; resolve(); return; }
+  window.addEventListener('firebase-ready',()=>{ _fbReady=true; resolve(); },{once:true});
+  // Timeout 5s → fallback local
+  setTimeout(()=>resolve(), 5000);
+});}
+
+function getPlayerId(){
+  try{
+    let pid = localStorage.getItem('cf_pid');
+    if(!pid){ pid = 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); localStorage.setItem('cf_pid',pid); }
+    return pid;
+  }catch(e){ return 'p_anon_'+Math.random().toString(36).slice(2,6); }
+}
+function getStoredName(){ try{ return localStorage.getItem('cf_name')||''; }catch(e){ return ''; } }
+function setStoredName(n){ try{ localStorage.setItem('cf_name',n); }catch(e){} }
+
+// ── Sauvegarde Firestore ───────────────────────────────────────────────────
+async function saveScoreOnline(entry){
+  await waitForFirebase();
+  if(!_fbReady || !window._firebase) return false;
+  try{
+    const { db, doc, setDoc } = window._firebase;
+    // L'ID du document = l'ID du joueur (sanitisé automatiquement par Firestore)
+    const safeId = entry.id.replace(/[^a-zA-Z0-9_-]/g,'_');
+    await setDoc(doc(db, FS_COLLECTION, safeId), entry);
+    return true;
+  }catch(e){ console.warn('[Firestore] saveScore error:', e); return false; }
+}
+
+// ── Chargement Firestore (top 100 par tco) ────────────────────────────────
+async function fetchLeaderboardOnline(){
+  await waitForFirebase();
+  if(!_fbReady || !window._firebase) return null;
+  try{
+    const { db, collection, query, orderBy, limit, getDocs } = window._firebase;
+    const q = query(collection(db, FS_COLLECTION), orderBy('tco','desc'), limit(100));
+    const snap = await getDocs(q);
+    const entries = [];
+    snap.forEach(d=>{ const v=d.data(); if(v && v.id) entries.push(v); });
+    return entries;
+  }catch(e){ console.warn('[Firestore] fetch error:', e); return null; }
+}
+
+// ── Listener temps réel (mise à jour live du classement) ──────────────────
+function subscribeLbRealtime(){
+  if(!_fbReady || !window._firebase) return;
+  try{
+    const { db, collection, query, orderBy, limit, onSnapshot } = window._firebase;
+    const q = query(collection(db, FS_COLLECTION), orderBy('tco','desc'), limit(100));
+    _lbListener = onSnapshot(q, snap=>{
+      if(!lbOpen) return;
+      const entries=[];
+      snap.forEach(d=>{ const v=d.data(); if(v&&v.id) entries.push(v); });
+      lbData=entries;
+      updateOnlineCount(entries);
+      renderLbData(entries);
+    }, err=>console.warn('[Firestore] realtime error:',err));
+  }catch(e){}
+}
+
+function unsubscribeLbRealtime(){
+  if(_lbListener){ try{ _lbListener(); }catch(e){} _lbListener=null; }
+}
+
+// ── Fallback localStorage ──────────────────────────────────────────────────
+function fetchLeaderboardLocal(){
+  try{ const raw=localStorage.getItem(LB_KEY_LOCAL); if(!raw) return []; const arr=JSON.parse(raw); return Array.isArray(arr)?arr:[]; }catch(e){ return []; }
+}
+function saveScoreLocal(entry){
+  try{ let arr=fetchLeaderboardLocal(); const idx=arr.findIndex(e=>e.id===entry.id); if(idx>=0) arr[idx]=entry; else arr.push(entry); localStorage.setItem(LB_KEY_LOCAL,JSON.stringify(arr)); return true; }catch(e){ return false; }
+}
+
+// ── Interface unifiée ──────────────────────────────────────────────────────
+async function saveScoreToLb(entry){
+  saveScoreLocal(entry);
+  const ok = await saveScoreOnline(entry);
+  return ok;
+}
+
+async function fetchLeaderboard(){
+  const online = await fetchLeaderboardOnline();
+  if(online !== null) return online;
+  return fetchLeaderboardLocal();
+}
+
+function updateOnlineCount(arr){
+  const el=document.getElementById('lb-online-count');
+  if(!el) return;
+  if(_fbReady && window._firebase){
+    el.textContent = arr.length+' joueur'+(arr.length>1?'s':'')+' • 🔥 Firebase';
+    el.style.color='var(--green)';
+  } else {
+    el.textContent='mode hors-ligne';
+    el.style.color='var(--muted)';
+  }
+}
+
+function avatarColor(name){
+  const colors=['#9c6eff','#00e5ff','#f5c842','#2ed573','#ff6b6b','#ff9f43','#54a0ff','#ff6b9d'];
+  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))%colors.length;
+  return colors[Math.abs(h)%colors.length];
+}
+function avatarLetter(name){ return (name.trim()[0]||'?').toUpperCase(); }
+
+function rankLabel(i){
+  if(i===0) return '<span class="lb-rank r1">🥇</span>';
+  if(i===1) return '<span class="lb-rank r2">🥈</span>';
+  if(i===2) return '<span class="lb-rank r3">🥉</span>';
+  return '<span class="lb-rank rn">#'+(i+1)+'</span>';
+}
+function rankClass(i){ return i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''; }
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function timeAgo(ts){
+  const d=Math.floor((Date.now()-ts)/1000);
+  if(d<60) return 'à l\'instant';
+  if(d<3600) return 'il y a '+Math.floor(d/60)+'min';
+  if(d<86400) return 'il y a '+Math.floor(d/3600)+'h';
+  return 'il y a '+Math.floor(d/86400)+'j';
+}
+
+async function submitScore(){
+  const nameInput = document.getElementById('lb-name-input');
+  const name = nameInput.value.trim().replace(/[<>]/g,'');
+  if(!name){ nameInput.style.borderColor='rgba(255,71,87,.5)'; setTimeout(()=>nameInput.style.borderColor='',1200); return; }
+  setStoredName(name);
+  myPlayerId = getPlayerId();
+  const entry = {
+    id: myPlayerId,
+    name: name,
+    tco: Math.floor(S.tco),
+    tc: Math.floor(S.tc),
+    pc: S.pc,
+    cps: Math.floor(getCps()),
+    ts: Date.now(),
+  };
+  document.getElementById('lb-status').textContent = '⏳ Envoi vers Firestore…';
+  const ok = await saveScoreToLb(entry);
+  if(ok){
+    document.getElementById('lb-status').textContent = '🔥 Score enregistré sur Firestore · ' + new Date().toLocaleTimeString();
+  } else {
+    document.getElementById('lb-status').textContent = '💾 Sauvegardé localement (Firestore hors-ligne)';
+  }
+  loadAndRenderLb();
+}
+
+async function loadAndRenderLb(){
+  const body = document.getElementById('lb-body');
+  body.innerHTML='<div class="lb-loading">🔥 Connexion à Firestore…</div>';
+  lbData = await fetchLeaderboard();
+  updateOnlineCount(lbData);
+  renderLbData(lbData);
+}
+
+function renderLbData(data){
+  const body = document.getElementById('lb-body');
+  if(!data.length){
+    body.innerHTML='<div class="lb-empty">Aucun score encore soumis.<br>Soumettez votre premier score !</div>';
+    return;
+  }
+  const sorted = [...data].sort((a,b)=>(b[lbFilter]||0)-(a[lbFilter]||0));
+  const pid = getPlayerId();
+  let html='';
+  sorted.forEach((e,i)=>{
+    const isMe = e.id===pid;
+    const col = avatarColor(e.name);
+    const lett = avatarLetter(e.name);
+    const ago = timeAgo(e.ts);
+    const mainVal = lbFilter==='tco'?fmt(e.tco):lbFilter==='tc'?fmt(e.tc):'✦ '+e.pc;
+    const subVal = lbFilter==='tco'?fmt(e.cps)+'/sec':lbFilter==='tc'?'✦ '+e.pc+' prestige':fmt(e.tco)+' pièces';
+    html +=
+      '<div class="lb-row '+rankClass(i)+(isMe?' me':'')+'">' +
+        rankLabel(i)+
+        '<div class="lb-avatar" style="background:'+col+'22;color:'+col+';border:1px solid '+col+'44">'+lett+'</div>'+
+        '<div class="lb-info">'+
+          '<div class="lb-pname">'+escHtml(e.name)+(isMe?'<span class="lb-me-tag">VOUS</span>':'')+'</div>'+
+          '<div class="lb-pmeta">'+ago+'</div>'+
+        '</div>'+
+        '<div class="lb-score-col">'+
+          '<div class="lb-score">'+mainVal+'</div>'+
+          '<div class="lb-cps">'+subVal+'</div>'+
+        '</div>'+
+      '</div>';
+  });
+  body.innerHTML=html;
+}
+
+function setLbFilter(f){
+  lbFilter=f;
+  document.querySelectorAll('.lb-filt-btn').forEach((b,i)=>b.classList.toggle('active',['tco','tc','pc'][i]===f));
+  loadAndRenderLb();
+}
+
+let lbRefreshInterval=null;
+async function openLeaderboard(){
+  myPlayerId=getPlayerId();
+  document.getElementById('lb-name-input').value=getStoredName();
+  document.getElementById('lb-modal').style.display='flex';
+  lbOpen=true;
+  await waitForFirebase();
+  loadAndRenderLb();
+  subscribeLbRealtime();
+}
+
+function closeLeaderboard(){
+  document.getElementById('lb-modal').style.display='none';
+  lbOpen=false;
+  unsubscribeLbRealtime();
+  if(lbRefreshInterval) clearInterval(lbRefreshInterval);
+}
+
+// Auto-submit périodique si le joueur a un pseudo
+async function autoSubmitScore(){
+  const name=getStoredName();
+  if(!name) return;
+  const pid=getPlayerId();
+  const entry={id:pid,name,tco:Math.floor(S.tco),tc:Math.floor(S.tc),pc:S.pc,cps:Math.floor(getCps()),ts:Date.now()};
+  await saveScoreToLb(entry);
+  if(lbOpen) loadAndRenderLb();
+}
+
+// ═══ INIT ═════════════════════════════════════════════════════════════════════
+load();
+renderAll();
+loop();
+</script>
+</body>
+</html>
